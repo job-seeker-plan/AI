@@ -1,0 +1,49 @@
+{
+  "single_model": {
+    "mae": 40564.75205692623,
+    "rmse": 92420.78048652639,
+    "mape_unreliable_due_to_zeros": 352461.0248166728
+  },
+  "two_stage_model": {
+    "mae": 40001.16145565655,
+    "rmse": 93346.43575080072,
+    "mape_unreliable_due_to_zeros": 285762.2866483219
+  },
+  "baseline_last_month": {
+    "mae": 42159.94641627742,
+    "rmse": 101391.77827635748,
+    "mape_unreliable_due_to_zeros": 275390.9653893588
+  },
+  "baseline_3m_avg": {
+    "mae": 44285.17399793108,
+    "rmse": 99256.74401009276,
+    "mape_unreliable_due_to_zeros": 400336.1060586618
+  },
+  "classifier_f1": 0.9708585437725686,
+  "nonzero_only": {
+    "mae": 84711.04382546552,
+    "rmse": 135624.63434602733,
+    "mape_unreliable_due_to_zeros": 84.26365283382621,
+    "n_rows": 41398,
+    "median_actual": 417221.0
+  },
+  "n_train_rows": 377646,
+  "n_test_rows": 94413,
+  "n_train_users": 125882,
+  "n_test_users": 31471,
+  "classifier_best_params": {
+    "num_leaves": 15,
+    "n_estimators": 300,
+    "min_child_samples": 10,
+    "max_depth": -1,
+    "learning_rate": 0.03
+  },
+  "regressor_best_params": {
+    "num_leaves": 63,
+    "n_estimators": 200,
+    "min_child_samples": 10,
+    "max_depth": 5,
+    "learning_rate": 0.05
+  },
+  "leakage_fix_applied": true
+}
