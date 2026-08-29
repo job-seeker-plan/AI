@@ -1,42 +1,95 @@
 {
-  "single_model": {
-    "mae": 40564.75205692623,
-    "rmse": 92420.78048652639,
-    "mape_unreliable_due_to_zeros": 352461.0248166728
+  "baseline": {
+    "baseline_last_month": {
+      "mae": 42221.48868270259,
+      "rmse": 101247.26200363129,
+      "mape_unreliable_due_to_zeros": 283210.5890850763
+    },
+    "baseline_3m_avg": {
+      "mae": 44429.94455212735,
+      "rmse": 99342.55407532613,
+      "mape_unreliable_due_to_zeros": 410846.9061955326
+    }
   },
-  "two_stage_model": {
-    "mae": 40001.16145565655,
-    "rmse": 93346.43575080072,
-    "mape_unreliable_due_to_zeros": 285762.2866483219
+  "tiers": {
+    "tier0_baseline": {
+      "n_features": 11,
+      "two_stage_model": {
+        "mae": 40122.86736156997,
+        "rmse": 93399.75660159285,
+        "mape_unreliable_due_to_zeros": 296866.7734079735
+      },
+      "classifier_f1": 0.9704065197009399,
+      "nonzero_only": {
+        "mae": 84400.97469213784,
+        "rmse": 135230.53443698023,
+        "mape_unreliable_due_to_zeros": 81.47039217910954,
+        "n_rows": 41562
+      }
+    },
+    "tier1_immediate": {
+      "n_features": 15,
+      "two_stage_model": {
+        "mae": 40068.05128104038,
+        "rmse": 93047.90823489543,
+        "mape_unreliable_due_to_zeros": 296818.7327425309
+      },
+      "classifier_f1": 0.9708021300381051,
+      "nonzero_only": {
+        "mae": 84277.35223067216,
+        "rmse": 134728.8430757997,
+        "mape_unreliable_due_to_zeros": 62.21538553396605,
+        "n_rows": 41562
+      }
+    },
+    "tier2_be_schema_change_needed": {
+      "n_features": 22,
+      "two_stage_model": {
+        "mae": 40019.62629891475,
+        "rmse": 92976.95065414744,
+        "mape_unreliable_due_to_zeros": 294169.28371367423
+      },
+      "classifier_f1": 0.9711606659854541,
+      "nonzero_only": {
+        "mae": 84227.76541948089,
+        "rmse": 134691.45242517954,
+        "mape_unreliable_due_to_zeros": 85.304936282621,
+        "n_rows": 41562
+      }
+    },
+    "tier3_offline_only": {
+      "n_features": 44,
+      "two_stage_model": {
+        "mae": 39775.829041842255,
+        "rmse": 92054.44128535976,
+        "mape_unreliable_due_to_zeros": 287186.20225512993
+      },
+      "classifier_f1": 0.9712849618816286,
+      "nonzero_only": {
+        "mae": 83832.3483541145,
+        "rmse": 133408.24311288563,
+        "mape_unreliable_due_to_zeros": 62.133923752273056,
+        "n_rows": 41562
+      }
+    }
   },
-  "baseline_last_month": {
-    "mae": 42159.94641627742,
-    "rmse": 101391.77827635748,
-    "mape_unreliable_due_to_zeros": 275390.9653893588
-  },
-  "baseline_3m_avg": {
-    "mae": 44285.17399793108,
-    "rmse": 99256.74401009276,
-    "mape_unreliable_due_to_zeros": 400336.1060586618
-  },
-  "classifier_f1": 0.9708585437725686,
-  "nonzero_only": {
-    "mae": 84711.04382546552,
-    "rmse": 135624.63434602733,
-    "mape_unreliable_due_to_zeros": 84.26365283382621,
-    "n_rows": 41398,
-    "median_actual": 417221.0
+  "deploy_tier": "tier1_immediate",
+  "tier_definitions": {
+    "tier0_baseline": "기존 배포 피처 그대로",
+    "tier1_immediate": "한도대비 부담률 추가 - BE 스키마 변경 없이 즉시 배포 (spend_predictor.pkl에 이 tier 저장)",
+    "tier2_be_schema_change_needed": "01번 정적 인구통계 추가 - BE의 FinancialRecordInput 확장 필요, 오프라인 검증만",
+    "tier3_offline_only": "03번 업종별 소비/이용행태 추가 - 실서비스는 사용자가 총액만 입력하는 구조라 반영 불가, 오프라인 잠재력 지표"
   },
   "n_train_rows": 377646,
   "n_test_rows": 94413,
   "n_train_users": 125882,
   "n_test_users": 31471,
   "classifier_best_params": {
-    "num_leaves": 15,
+    "num_leaves": 63,
     "n_estimators": 300,
-    "min_child_samples": 10,
-    "max_depth": -1,
-    "learning_rate": 0.03
+    "min_child_samples": 20,
+    "max_depth": 8,
+    "learning_rate": 0.05
   },
   "regressor_best_params": {
     "num_leaves": 63,
@@ -45,5 +98,6 @@
     "max_depth": 5,
     "learning_rate": 0.05
   },
+  "hyperparameter_tuning_note": "tier3(전체 피처)로 1회만 튜닝, 동일 파라미터를 전 tier에 적용(피처 자체의 순수 효과 비교 목적)",
   "leakage_fix_applied": true
 }
