@@ -55,9 +55,13 @@ def load_history(user_id: str, records: list[dict] | None = None) -> pd.DataFram
 def build_features(frame: pd.DataFrame) -> pd.DataFrame:
     """미래 데이터로 결측을 채우지 않는다(bfill 금지, train.py와 동일 원칙).
     실시간 추론은 항상 마지막 행(featured.tail(1))만 사용하므로, 이력이 짧아 앞쪽
-    행의 2/3개월 평균이 비어도 그 행이 실제로 예측에 쓰이는 일은 없다."""
+    행의 2/3개월 평균이 비어도 그 행이 실제로 예측에 쓰이는 일은 없다.
+
+    train.py의 tier1(즉시 반영 가능 피처)까지만 계산한다 - 배포 모델(spend_predictor.pkl)이
+    tier1로 학습되기 때문. tier2(01번 인구통계)/tier3(03번 업종별 소비)는 BE가 보내는
+    실시간 스키마에 없는 값이라 여기서 계산하지 않는다(오프라인 검증 전용, train.py 참고)."""
     result = frame.copy()
-    for optional_column in ("credit_limit", "card_outstanding_balance", "edu_spend", "fin_stress"):
+    for optional_column in ("credit_limit", "card_outstanding_balance", "edu_spend", "fin_stress", "installment_balance"):
         if optional_column not in result:
             result[optional_column] = 0
         result[optional_column] = result[optional_column].fillna(0)
@@ -66,6 +70,12 @@ def build_features(frame: pd.DataFrame) -> pd.DataFrame:
     result["spend_3m_avg"] = result["spend"].rolling(3).mean()
     result["spend_growth_rate"] = result["spend"].pct_change().replace([float("inf"), float("-inf")], 0).fillna(0)
     result["bill_to_spend_ratio"] = result["bill"] / result["spend"].clip(lower=1)
+
+    limit_denom = result["credit_limit"].clip(lower=1)
+    result["spend_to_limit_ratio"] = result["spend"] / limit_denom
+    result["balance_to_limit_ratio"] = result["card_outstanding_balance"] / limit_denom
+    result["bill_to_limit_ratio"] = result["bill"] / limit_denom
+    result["installment_balance_to_limit_ratio"] = result["installment_balance"] / limit_denom
     return result.fillna(0)
 
 
