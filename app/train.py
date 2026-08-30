@@ -30,6 +30,18 @@ v4 (2026-08-26) — 피처 확장, tier별 성능 비교:
 하이퍼파라미터는 tier3(전체 피처)로 한 번만 튜닝하고, 그 값을 tier0/1/2에도 동일하게
 적용해서 MAE/RMSE만 비교한다. tier마다 따로 튜닝하면 "성능 차이가 피처 때문인지
 튜닝 운 때문인지" 헷갈리기 때문 - 피처 자체의 순수 효과를 보기 위한 선택.
+
+v5 (2026-08-30) — /tmp/work 오프라인 실험(tier3 기준)에서 검증된 개선 2건을 실제
+배포 파이프라인에 반영:
+- spend_cv_3m(변동계수 = 3개월 롤링 표준편차 / 3개월 평균): spend_3m_avg와 완전히
+  같은 규칙(rolling(3), shift 없음 - 현재+과거만)이라 leak-safe. spend만 있으면
+  계산되므로 tier0(baseline)부터 추가 - 배포 tier(tier1_immediate)에도 자동 포함됨.
+- 회귀기 타깃을 log1p로 변환해 학습하고 예측 시 expm1로 역변환: 오른쪽 꼬리가 긴
+  고액 지출 이상치의 영향을 줄여 MAE가 개선됨(RMSE는 소폭 악화, MAE 개선 폭이 더 큼
+  - 오프라인 실험에서 tier3 기준 raw MAE 39,776 -> 39,563). 회귀기 하이퍼파라미터도
+  log1p 스케일에 맞춰 "역변환 후 원본 스케일 MAE"를 스코어로 재탐색.
+  predictor.py가 이 변환 여부를 알 수 있도록 deploy_bundle/metrics에
+  target_transform="log1p"를 기록한다(하위호환: 이 키가 없는 과거 모델은 raw 그대로 사용).
 """
 
 import json
@@ -37,9 +49,11 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from sklearn.model_selection import train_test_split, RandomizedSearchCV
-from sklearn.metrics import mean_absolute_error, mean_squared_error, f1_score
+from sklearn.metrics import mean_absolute_error, mean_squared_error, f1_score, make_scorer
 import lightgbm as lgb
 import joblib
+
+TARGET_TRANSFORM = "log1p"
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA_PATH = ROOT / "Data" / "processed" / "user_month_features.csv"
@@ -51,7 +65,7 @@ CATEGORY_SPEND_COLS = ["dining_spend", "transport_spend", "payment_spend", "shop
 
 TIER0_BASELINE_COLUMNS = [
     "spend", "bill", "card_outstanding_balance", "credit_limit",
-    "spend_lag_1", "spend_2m_avg", "spend_3m_avg",
+    "spend_lag_1", "spend_2m_avg", "spend_3m_avg", "spend_cv_3m",
     "spend_growth_rate", "bill_to_spend_ratio",
     "edu_spend", "fin_stress",
 ]
@@ -107,6 +121,9 @@ def build_features(raw: pd.DataFrame) -> pd.DataFrame:
     df["spend_lag_1"] = by_user["spend"].shift(1)
     df["spend_2m_avg"] = by_user["spend"].rolling(2).mean().reset_index(level=0, drop=True)
     df["spend_3m_avg"] = by_user["spend"].rolling(3).mean().reset_index(level=0, drop=True)
+    # spend_3m_avg와 동일한 rolling(3)/shift 없음 규칙이라 NaN 패턴도 동일하게 맞물림(leak-safe).
+    spend_std_3m = by_user["spend"].rolling(3).std().reset_index(level=0, drop=True)
+    df["spend_cv_3m"] = spend_std_3m / df["spend_3m_avg"].clip(lower=1)
     # pct_change의 첫 행 NaN은 "이전 달 자체가 없음"을 0으로 정의하는 것이라 미래를 안 끌어옴(누수 아님)
     df["spend_growth_rate"] = by_user["spend"].pct_change().replace([np.inf, -np.inf], 0).fillna(0)
     df["bill_to_spend_ratio"] = df["bill"] / df["spend"].clip(lower=1)
@@ -177,14 +194,16 @@ def fit_tier(tier_name, columns, train_df, test_df, clf_params, reg_params):
 
     reg_train_df = train_df[train_df["target"] > 0]
     regressor = lgb.LGBMRegressor(random_state=42, verbose=-1, **reg_params)
-    regressor.fit(reg_train_df[columns], reg_train_df["target"])
+    # log1p로 학습 -> 오른쪽 꼬리가 긴 고액 지출 이상치의 영향을 줄여 raw-scale MAE 개선
+    # (RMSE는 소폭 악화되지만 MAE 개선폭이 더 큼, /tmp/work 오프라인 실험으로 검증됨).
+    regressor.fit(reg_train_df[columns], np.log1p(reg_train_df["target"]))
 
     X_test = test_df[columns]
     test_binary_pred = classifier.predict(X_test)
     test_binary_true = (test_df["target"] > 0).astype(int)
     clf_f1 = f1_score(test_binary_true, test_binary_pred)
 
-    regressor_pred_all = np.clip(regressor.predict(X_test), 0, None)
+    regressor_pred_all = np.clip(np.expm1(regressor.predict(X_test)), 0, None)
     two_stage_pred = np.where(test_binary_pred == 1, regressor_pred_all, 0)
     y_true = test_df["target"].to_numpy()
 
@@ -235,11 +254,16 @@ def main() -> None:
         train_df[TIER3_OFFLINE_ONLY_COLUMNS], y_train_binary_full,
         scoring="f1", n_iter=12,
     )
-    print("[튜닝, tier3 전체 피처 기준] 회귀기(지출액, target>0인 행만)", flush=True)
+    print("[튜닝, tier3 전체 피처 기준] 회귀기(지출액 log1p, target>0인 행만, 스코어는 expm1 역변환 후 원본 스케일 MAE)", flush=True)
+
+    def _raw_scale_mae(y_true_log, y_pred_log):
+        return -np.mean(np.abs(np.expm1(y_true_log) - np.clip(np.expm1(y_pred_log), 0, None)))
+
+    log1p_raw_mae_scorer = make_scorer(_raw_scale_mae, greater_is_better=True)
     _, reg_params = tune(
         lgb.LGBMRegressor(random_state=42, verbose=-1, n_jobs=1),
-        reg_train_df_full[TIER3_OFFLINE_ONLY_COLUMNS], reg_train_df_full["target"],
-        scoring="neg_mean_absolute_error", n_iter=12,
+        reg_train_df_full[TIER3_OFFLINE_ONLY_COLUMNS], np.log1p(reg_train_df_full["target"]),
+        scoring=log1p_raw_mae_scorer, n_iter=12,
     )
     print("")
     print("=== tier별 성능 비교 (동일 하이퍼파라미터, 피처만 누적 추가) ===")
@@ -263,6 +287,7 @@ def main() -> None:
                 "classifier": classifier,
                 "regressor": regressor,
                 "feature_columns": columns,
+                "target_transform": TARGET_TRANSFORM,
             }
 
     metrics_out = {
@@ -283,6 +308,8 @@ def main() -> None:
         "regressor_best_params": reg_params,
         "hyperparameter_tuning_note": "tier3(전체 피처)로 1회만 튜닝, 동일 파라미터를 전 tier에 적용(피처 자체의 순수 효과 비교 목적)",
         "leakage_fix_applied": True,
+        "target_transform": TARGET_TRANSFORM,
+        "target_transform_note": "회귀기는 log1p(target)로 학습, 예측 시 expm1로 역변환 - 고액 지출 이상치 영향을 줄여 MAE 개선(2026-08-30 오프라인 실험으로 검증)",
     }
 
     MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)

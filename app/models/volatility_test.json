@@ -1,0 +1,28 @@
+{
+  "base_no_volatility": {
+    "two_stage_model": {
+      "mae": 39578.7627692772,
+      "rmse": 92751.35959347972,
+      "mape_unreliable_due_to_zeros": 259152.8035163038
+    },
+    "nonzero_only": {
+      "mae": 81710.00190823282,
+      "rmse": 132083.60601107782,
+      "mape_unreliable_due_to_zeros": 59.50245858107005,
+      "n_rows": 41562
+    }
+  },
+  "with_volatility": {
+    "two_stage_model": {
+      "mae": 39538.5009913847,
+      "rmse": 92815.73320545224,
+      "mape_unreliable_due_to_zeros": 260467.0770675121
+    },
+    "nonzero_only": {
+      "mae": 81541.6363940068,
+      "rmse": 132104.33432447046,
+      "mape_unreliable_due_to_zeros": 59.10010166153202,
+      "n_rows": 41562
+    }
+  }
+}

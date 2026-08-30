@@ -1,0 +1,83 @@
+{
+  "note": "tier1_immediate 기준, income 피처 추가 비교. 하이퍼파라미터는 기존 tier3 튜닝값 재사용(재튜닝 없음).",
+  "n_train_rows": 377646,
+  "n_test_rows": 94413,
+  "reused_hyperparameters": {
+    "classifier": {
+      "num_leaves": 63,
+      "n_estimators": 300,
+      "min_child_samples": 20,
+      "max_depth": 8,
+      "learning_rate": 0.05
+    },
+    "regressor": {
+      "num_leaves": 63,
+      "n_estimators": 200,
+      "min_child_samples": 10,
+      "max_depth": 5,
+      "learning_rate": 0.05
+    }
+  },
+  "results": {
+    "tier1_no_income": {
+      "n_features": 15,
+      "two_stage_model": {
+        "mae": 40068.05128104038,
+        "rmse": 93047.90823489543,
+        "mape_unreliable_due_to_zeros": 296818.73274253076
+      },
+      "classifier_f1": 0.9708021300381051,
+      "nonzero_only": {
+        "mae": 84277.35223067214,
+        "rmse": 134728.8430757997,
+        "mape_unreliable_due_to_zeros": 62.21538553396605,
+        "n_rows": 41562
+      }
+    },
+    "tier1_plus_income_wage_admin": {
+      "n_features": 16,
+      "two_stage_model": {
+        "mae": 40087.92683781701,
+        "rmse": 93203.26470602174,
+        "mape_unreliable_due_to_zeros": 299225.3406373627
+      },
+      "classifier_f1": 0.970257988507129,
+      "nonzero_only": {
+        "mae": 84267.83059565937,
+        "rmse": 134894.69880423168,
+        "mape_unreliable_due_to_zeros": 61.97857160532134,
+        "n_rows": 41562
+      }
+    },
+    "tier1_plus_income_household_survey": {
+      "n_features": 16,
+      "two_stage_model": {
+        "mae": 40069.13825774171,
+        "rmse": 93122.29872549648,
+        "mape_unreliable_due_to_zeros": 296533.5765954494
+      },
+      "classifier_f1": 0.9706366663060854,
+      "nonzero_only": {
+        "mae": 84286.53327474432,
+        "rmse": 134831.060923035,
+        "mape_unreliable_due_to_zeros": 85.63425200015834,
+        "n_rows": 41562
+      }
+    },
+    "tier1_plus_income_both": {
+      "n_features": 17,
+      "two_stage_model": {
+        "mae": 40151.78700268212,
+        "rmse": 93516.20681023538,
+        "mape_unreliable_due_to_zeros": 300132.85825544747
+      },
+      "classifier_f1": 0.9702703677434091,
+      "nonzero_only": {
+        "mae": 84392.52617901457,
+        "rmse": 135298.99338354418,
+        "mape_unreliable_due_to_zeros": 86.47859268636839,
+        "n_rows": 41562
+      }
+    }
+  }
+}

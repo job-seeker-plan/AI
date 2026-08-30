@@ -2,6 +2,7 @@ from os import getenv
 from pathlib import Path
 
 import joblib
+import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 
@@ -68,6 +69,8 @@ def build_features(frame: pd.DataFrame) -> pd.DataFrame:
     result["spend_lag_1"] = result["spend"].shift(1)
     result["spend_2m_avg"] = result["spend"].rolling(2).mean()
     result["spend_3m_avg"] = result["spend"].rolling(3).mean()
+    # train.py의 build_features와 동일 규칙(rolling(3), shift 없음) - tier0부터 배포 tier까지 사용.
+    result["spend_cv_3m"] = result["spend"].rolling(3).std() / result["spend_3m_avg"].clip(lower=1)
     result["spend_growth_rate"] = result["spend"].pct_change().replace([float("inf"), float("-inf")], 0).fillna(0)
     result["bill_to_spend_ratio"] = result["bill"] / result["spend"].clip(lower=1)
 
@@ -93,7 +96,12 @@ def predict_next_spend(user_id: str, records: list[dict] | None = None) -> dict:
             prediction = 0
             importances = bundle["classifier"].feature_importances_
         else:
-            prediction = int(max(0, bundle["regressor"].predict(latest_row)[0]))
+            regressor_output = bundle["regressor"].predict(latest_row)[0]
+            # train.py가 log1p(target)로 학습한 모델이면 expm1로 되돌린다.
+            # 이 키가 없는(구버전) 모델 파일은 원래대로 raw 스케일 그대로 사용(하위호환).
+            if bundle.get("target_transform") == "log1p":
+                regressor_output = np.expm1(regressor_output)
+            prediction = int(max(0, regressor_output))
             importances = bundle["regressor"].feature_importances_
         impacts = sorted(
             [
