@@ -3,7 +3,7 @@
     "baseline_last_month": {
       "mae": 42221.48868270259,
       "rmse": 101247.26200363129,
-      "mape_unreliable_due_to_zeros": 283210.5890850763
+      "mape_unreliable_due_to_zeros": 283210.58908507635
     },
     "baseline_3m_avg": {
       "mae": 44429.94455212735,
@@ -13,62 +13,62 @@
   },
   "tiers": {
     "tier0_baseline": {
-      "n_features": 11,
+      "n_features": 12,
       "two_stage_model": {
-        "mae": 40122.86736156997,
-        "rmse": 93399.75660159285,
-        "mape_unreliable_due_to_zeros": 296866.7734079735
+        "mae": 39823.466774283195,
+        "rmse": 93846.50230642853,
+        "mape_unreliable_due_to_zeros": 269126.31466064387
       },
-      "classifier_f1": 0.9704065197009399,
+      "classifier_f1": 0.9703158451805345,
       "nonzero_only": {
-        "mae": 84400.97469213784,
-        "rmse": 135230.53443698023,
-        "mape_unreliable_due_to_zeros": 81.47039217910954,
+        "mae": 84350.70114970767,
+        "rmse": 136835.80413746127,
+        "mape_unreliable_due_to_zeros": 50.76773087149389,
         "n_rows": 41562
       }
     },
     "tier1_immediate": {
-      "n_features": 15,
+      "n_features": 16,
       "two_stage_model": {
-        "mae": 40068.05128104038,
-        "rmse": 93047.90823489543,
-        "mape_unreliable_due_to_zeros": 296818.7327425309
+        "mae": 39822.24143025181,
+        "rmse": 93778.75070462954,
+        "mape_unreliable_due_to_zeros": 270695.3879809711
       },
-      "classifier_f1": 0.9708021300381051,
+      "classifier_f1": 0.970160378946356,
       "nonzero_only": {
-        "mae": 84277.35223067216,
-        "rmse": 134728.8430757997,
-        "mape_unreliable_due_to_zeros": 62.21538553396605,
+        "mae": 84312.27398606982,
+        "rmse": 136665.25173076213,
+        "mape_unreliable_due_to_zeros": 50.73843689908122,
         "n_rows": 41562
       }
     },
     "tier2_be_schema_change_needed": {
-      "n_features": 22,
+      "n_features": 23,
       "two_stage_model": {
-        "mae": 40019.62629891475,
-        "rmse": 92976.95065414744,
-        "mape_unreliable_due_to_zeros": 294169.28371367423
+        "mae": 39752.77275974809,
+        "rmse": 93561.0631575113,
+        "mape_unreliable_due_to_zeros": 265009.32124872453
       },
-      "classifier_f1": 0.9711606659854541,
+      "classifier_f1": 0.970592126628258,
       "nonzero_only": {
-        "mae": 84227.76541948089,
-        "rmse": 134691.45242517954,
-        "mape_unreliable_due_to_zeros": 85.304936282621,
+        "mae": 84283.6364294893,
+        "rmse": 136542.55227352364,
+        "mape_unreliable_due_to_zeros": 51.03986067965813,
         "n_rows": 41562
       }
     },
     "tier3_offline_only": {
-      "n_features": 44,
+      "n_features": 45,
       "two_stage_model": {
-        "mae": 39775.829041842255,
-        "rmse": 92054.44128535976,
-        "mape_unreliable_due_to_zeros": 287186.20225512993
+        "mae": 39531.9491413237,
+        "rmse": 92676.2077765676,
+        "mape_unreliable_due_to_zeros": 263776.6720019723
       },
-      "classifier_f1": 0.9712849618816286,
+      "classifier_f1": 0.9709179255267969,
       "nonzero_only": {
-        "mae": 83832.3483541145,
-        "rmse": 133408.24311288563,
-        "mape_unreliable_due_to_zeros": 62.133923752273056,
+        "mae": 83809.99049784458,
+        "rmse": 135129.07979691977,
+        "mape_unreliable_due_to_zeros": 49.035486368353105,
         "n_rows": 41562
       }
     }
@@ -86,18 +86,20 @@
   "n_test_users": 31471,
   "classifier_best_params": {
     "num_leaves": 63,
+    "n_estimators": 100,
+    "min_child_samples": 50,
+    "max_depth": 5,
+    "learning_rate": 0.1
+  },
+  "regressor_best_params": {
+    "num_leaves": 63,
     "n_estimators": 300,
     "min_child_samples": 20,
     "max_depth": 8,
     "learning_rate": 0.05
   },
-  "regressor_best_params": {
-    "num_leaves": 63,
-    "n_estimators": 200,
-    "min_child_samples": 10,
-    "max_depth": 5,
-    "learning_rate": 0.05
-  },
   "hyperparameter_tuning_note": "tier3(전체 피처)로 1회만 튜닝, 동일 파라미터를 전 tier에 적용(피처 자체의 순수 효과 비교 목적)",
-  "leakage_fix_applied": true
+  "leakage_fix_applied": true,
+  "target_transform": "log1p",
+  "target_transform_note": "회귀기는 log1p(target)로 학습, 예측 시 expm1로 역변환 - 고액 지출 이상치 영향을 줄여 MAE 개선(2026-08-30 오프라인 실험으로 검증)"
 }

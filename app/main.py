@@ -2,8 +2,15 @@ from os import getenv
 
 from fastapi import FastAPI, Header, HTTPException, status
 
+from .pattern_advisor import advise_next_week
 from .predictor import predict_next_spend
-from .schemas import GuideRequest, GuideResponse, SpendingPredictionRequest, SpendingPredictionResponse
+from .schemas import (
+    GuideRequest,
+    GuideResponse,
+    PatternAdviceResponse,
+    SpendingPredictionRequest,
+    SpendingPredictionResponse,
+)
 
 
 app = FastAPI(title="Job Seeker Financial Planner AI Service")
@@ -26,6 +33,21 @@ def predict_spending(payload: SpendingPredictionRequest, x_internal_api_key: str
         verify_internal_key(x_internal_api_key)
         records = [record.model_dump() for record in payload.records]
         return SpendingPredictionResponse(**predict_next_spend(payload.user_id, records))
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+
+
+@app.post("/predict/pattern", response_model=PatternAdviceResponse)
+def predict_pattern(payload: SpendingPredictionRequest, x_internal_api_key: str | None = Header(default=None, alias="X-Internal-Api-Key")) -> PatternAdviceResponse:
+    """다음달 지출액 대신, 이번 달까지의 흐름으로 소비 패턴을 분류하고 다음 주
+    행동 조언을 준다 - AI Hub 원본에 결제 날짜가 없어 주 단위 금액 예측 자체가
+    불가능해서(pattern_advisor.py 모듈 docstring 참고) 택한 방식."""
+    try:
+        verify_internal_key(x_internal_api_key)
+        records = [record.model_dump() for record in payload.records]
+        return PatternAdviceResponse(**advise_next_week(payload.user_id, records))
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except FileNotFoundError as error:

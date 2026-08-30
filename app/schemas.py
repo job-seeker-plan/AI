@@ -29,6 +29,23 @@ class SpendingPredictionResponse(BaseModel):
     feature_importance: list[FeatureImpact]
 
 
+class PatternSignals(BaseModel):
+    spend_this_month: int
+    spend_growth_rate: float
+    spend_cv_3m: float
+    balance_to_limit_ratio: float
+    bill_to_limit_ratio: float
+    edu_spend_ratio: float
+
+
+class PatternAdviceResponse(BaseModel):
+    user_id: str
+    pattern: str
+    summary: str
+    advice: str
+    signals: PatternSignals
+
+
 class GuideRequest(BaseModel):
     status: str
     target_month_balance: int

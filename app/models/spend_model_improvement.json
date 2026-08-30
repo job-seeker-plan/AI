@@ -1,0 +1,55 @@
+{
+  "baseline_two_stage_raw_mae_loss": {
+    "two_stage_model": {
+      "mae": 39775.829041842255,
+      "rmse": 92054.44128535976,
+      "mape_unreliable_due_to_zeros": 287186.20225512993
+    },
+    "nonzero_only": {
+      "mae": 83832.3483541145,
+      "rmse": 133408.24311288563,
+      "mape_unreliable_due_to_zeros": 62.133923752273056,
+      "n_rows": 41562
+    }
+  },
+  "two_stage_log1p_regressor": {
+    "two_stage_model": {
+      "mae": 39578.7627692772,
+      "rmse": 92751.35959347972,
+      "mape_unreliable_due_to_zeros": 259152.8035163038
+    },
+    "nonzero_only": {
+      "mae": 81710.00190823282,
+      "rmse": 132083.60601107782,
+      "mape_unreliable_due_to_zeros": 59.50245858107005,
+      "n_rows": 41562
+    }
+  },
+  "single_stage_tweedie": {
+    "two_stage_model": {
+      "mae": 40400.77582042662,
+      "rmse": 91811.89052205252,
+      "mape_unreliable_due_to_zeros": 367151.9899459644
+    },
+    "nonzero_only": {
+      "mae": 83435.48323555605,
+      "rmse": 133643.47634214064,
+      "mape_unreliable_due_to_zeros": 63.31497503897208,
+      "n_rows": 41562
+    }
+  },
+  "two_stage_log1p_capped_p99": {
+    "cap_value": 2424191.2000000007,
+    "two_stage_model": {
+      "mae": 40299.20343035559,
+      "rmse": 95831.5766628235,
+      "mape_unreliable_due_to_zeros": 258992.7505683057
+    },
+    "nonzero_only": {
+      "mae": 83358.19244709151,
+      "rmse": 137017.99504046532,
+      "mape_unreliable_due_to_zeros": 59.81848770296971,
+      "n_rows": 41562
+    }
+  }
+}
