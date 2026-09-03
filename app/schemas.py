@@ -55,3 +55,39 @@ class GuideRequest(BaseModel):
 
 class GuideResponse(BaseModel):
     guide: str
+
+
+class HiringSeasonMonthly(BaseModel):
+    month: int
+    posting_count: int
+    seasonality_share: float
+
+
+class SkillTrendItem(BaseModel):
+    skill: str
+    count: int
+    n_postings: int
+
+
+class JdEvidenceItem(BaseModel):
+    chunk_text: str
+    posted_date: str
+    distance: float | None = None
+
+
+class HiringSeasonResponse(BaseModel):
+    company: str
+    job_family: str
+    n_postings_analyzed: int
+    observed_windows: list[str]
+    observed_dates: list[str] = []
+    monthly_breakdown: list[HiringSeasonMonthly] = []
+    skill_trend: list[SkillTrendItem] = []
+    jd_evidence: list[JdEvidenceItem] = []
+    basis: str
+    caveat: str
+
+
+class CompanySuggestion(BaseModel):
+    company: str
+    industry: str

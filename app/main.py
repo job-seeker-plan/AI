@@ -2,11 +2,14 @@ from os import getenv
 
 from fastapi import FastAPI, Header, HTTPException, status
 
+from .hiring_agent.hiring_pattern_pipeline import get_hiring_season, search_companies
 from .pattern_advisor import advise_next_week
 from .predictor import predict_next_spend
 from .schemas import (
+    CompanySuggestion,
     GuideRequest,
     GuideResponse,
+    HiringSeasonResponse,
     PatternAdviceResponse,
     SpendingPredictionRequest,
     SpendingPredictionResponse,
@@ -64,3 +67,20 @@ def build_guide(payload: GuideRequest, x_internal_api_key: str | None = Header(d
     else:
         guide = "목표 취업월까지 현금흐름은 안정적입니다. 시험·면접 비용이 늘어나는 달만 별도로 관리하면 됩니다."
     return GuideResponse(guide=guide)
+
+
+@app.get("/hiring/season", response_model=HiringSeasonResponse)
+def hiring_season(company: str, job_family: str, x_internal_api_key: str | None = Header(default=None, alias="X-Internal-Api-Key")) -> HiringSeasonResponse:
+    """회사명+직무로 과거 채용시즌 패턴을 반환한다. SARAMIN_ACCESS_KEY 승인 전에는
+    자동으로 mock 데이터를 쓴다(hiring_pattern_pipeline.get_hiring_season 참고)."""
+    verify_internal_key(x_internal_api_key)
+    return HiringSeasonResponse(**get_hiring_season(company, job_family))
+
+
+@app.get("/hiring/companies", response_model=list[CompanySuggestion])
+def hiring_companies(q: str = "", x_internal_api_key: str | None = Header(default=None, alias="X-Internal-Api-Key")) -> list[CompanySuggestion]:
+    """회사명 입력창 자동완성용. 등록된 관심기업(COMPANY_INDUSTRY) 중 q가 포함된 것만 반환.
+    q가 비어있으면 등록된 회사 전체를 반환한다(FE는 지금 빈 값으로는 호출 안 하지만,
+    엔드포인트 자체는 전체 목록 조회도 지원해둔다)."""
+    verify_internal_key(x_internal_api_key)
+    return [CompanySuggestion(**item) for item in search_companies(q)]

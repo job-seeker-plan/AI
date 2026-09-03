@@ -6,3 +6,9 @@ pydantic==2.10.4
 scikit-learn==1.6.0
 uvicorn[standard]==0.34.0
 
+# hiring_agent(채용시즌 분석) 모듈용
+openai==2.41.0
+psycopg2-binary==2.9.12
+python-dotenv==1.2.2
+requests==2.34.2
+
