@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SpendingPredictionRequest(BaseModel):
@@ -91,3 +91,32 @@ class HiringSeasonResponse(BaseModel):
 class CompanySuggestion(BaseModel):
     company: str
     industry: str
+
+
+class LinkareerRecruitSearchRequest(BaseModel):
+    keyword: str = Field(default="", max_length=80)
+    category_id: str | None = Field(default=None, max_length=20)
+    region_id: str | None = Field(default=None, max_length=20)
+    job_type: str | None = Field(default=None, max_length=20)
+    page: int = Field(default=1, ge=1)
+    limit: int = Field(default=20, ge=1, le=20)
+
+
+class LinkareerRecruitment(BaseModel):
+    id: str
+    title: str
+    company: str
+    categories: list[str]
+    locations: list[str]
+    employment_type: str
+    deadline: str
+    url: str
+
+
+class LinkareerRecruitSearchResponse(BaseModel):
+    jobs: list[LinkareerRecruitment]
+    source_url: str
+    total_count: int
+    page: int
+    page_size: int
+    cached: bool

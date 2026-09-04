@@ -5,11 +5,14 @@ from fastapi import FastAPI, Header, HTTPException, status
 from .hiring_agent.hiring_pattern_pipeline import get_hiring_season, search_companies
 from .pattern_advisor import advise_next_week
 from .predictor import predict_next_spend
+from .linkareer_macro import collect_recruitments
 from .schemas import (
     CompanySuggestion,
     GuideRequest,
     GuideResponse,
     HiringSeasonResponse,
+    LinkareerRecruitSearchRequest,
+    LinkareerRecruitSearchResponse,
     PatternAdviceResponse,
     SpendingPredictionRequest,
     SpendingPredictionResponse,
@@ -28,6 +31,16 @@ def verify_internal_key(x_internal_api_key: str | None) -> None:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.post("/crawl/linkareer/recruitments", response_model=LinkareerRecruitSearchResponse)
+async def crawl_linkareer_recruitments(payload: LinkareerRecruitSearchRequest, x_internal_api_key: str | None = Header(default=None, alias="X-Internal-Api-Key")) -> LinkareerRecruitSearchResponse:
+    verify_internal_key(x_internal_api_key)
+    try:
+        jobs, source_url, total_count, cached = await collect_recruitments(payload.keyword, payload.category_id, payload.region_id, payload.job_type, payload.page, payload.limit)
+        return LinkareerRecruitSearchResponse(jobs=jobs, source_url=source_url, total_count=total_count, page=payload.page, page_size=payload.limit, cached=cached)
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
 
 
 @app.post("/predict/spending", response_model=SpendingPredictionResponse)
