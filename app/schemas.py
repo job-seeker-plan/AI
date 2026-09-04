@@ -78,6 +78,18 @@ class FinancialContextResponse(BaseModel):
     saved_count: int
 
 
+class FinancialContextItem(BaseModel):
+    text: str
+    data_type: str
+    related_category: str
+    emotion_tag: str | None = None
+    urgency_level: str
+
+
+class FinancialContextListResponse(BaseModel):
+    contexts: list[FinancialContextItem]
+
+
 class HiringSeasonMonthly(BaseModel):
     month: int
     posting_count: int
@@ -141,3 +153,27 @@ class LinkareerRecruitSearchResponse(BaseModel):
     page: int
     page_size: int
     cached: bool
+
+
+class EmailMessageInput(BaseModel):
+    message_id: str
+    subject: str = ""
+    sender: str = ""
+    date: str = ""
+    body: str = ""
+
+
+class EmailParseRequest(BaseModel):
+    messages: list[EmailMessageInput] = Field(max_length=50)
+
+
+class EmailEventCandidate(BaseModel):
+    message_id: str
+    title: str
+    event_type: str
+    event_date: str
+    memo: str = ""
+
+
+class EmailParseResponse(BaseModel):
+    events: list[EmailEventCandidate]

@@ -6,9 +6,13 @@ from .hiring_agent.hiring_pattern_pipeline import get_hiring_season, search_comp
 from .pattern_advisor import advise_next_week
 from .predictor import predict_next_spend
 from .linkareer_macro import collect_recruitments
-from .financial_rag import build_personalized_guide, save_contexts
+from .financial_rag import build_personalized_guide, list_contexts, save_contexts
+from .email_agent import extract_email_events
 from .schemas import (
     CompanySuggestion,
+    EmailParseRequest,
+    EmailParseResponse,
+    FinancialContextListResponse,
     FinancialContextRequest,
     FinancialContextResponse,
     GuideRequest,
@@ -88,6 +92,22 @@ def save_financial_contexts(payload: FinancialContextRequest, x_internal_api_key
         return FinancialContextResponse(saved_count=save_contexts(payload.user_id, [item.model_dump() for item in payload.contexts]))
     except Exception as error:
         raise HTTPException(status_code=503, detail="개인화 정보를 저장하지 못했습니다.") from error
+
+
+@app.get("/financial-contexts", response_model=FinancialContextListResponse)
+def get_financial_contexts(user_id: str, x_internal_api_key: str | None = Header(default=None, alias="X-Internal-Api-Key")) -> FinancialContextListResponse:
+    verify_internal_key(x_internal_api_key)
+    try:
+        return FinancialContextListResponse(contexts=list_contexts(user_id))
+    except Exception as error:
+        raise HTTPException(status_code=503, detail="개인화 정보를 불러오지 못했습니다.") from error
+
+
+@app.post("/email/parse-events", response_model=EmailParseResponse)
+def parse_email_events(payload: EmailParseRequest, x_internal_api_key: str | None = Header(default=None, alias="X-Internal-Api-Key")) -> EmailParseResponse:
+    verify_internal_key(x_internal_api_key)
+    events = extract_email_events([message.model_dump() for message in payload.messages])
+    return EmailParseResponse(events=events)
 
 
 @app.get("/hiring/season", response_model=HiringSeasonResponse)

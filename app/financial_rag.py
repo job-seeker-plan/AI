@@ -8,6 +8,7 @@ recency order and returns a deterministic safety-first template instead.
 from __future__ import annotations
 
 import os
+from contextlib import closing
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -58,27 +59,53 @@ def save_contexts(user_id: str, contexts: list[dict]) -> int:
             # temporarily unavailable.
             embeddings = [None] * len(valid)
 
-    with _connection() as connection, connection.cursor() as cursor:
-        for item, embedding in zip(valid, embeddings):
-            cursor.execute(
-                """INSERT INTO user_context_embeddings
-                   (user_id, text, embedding, data_type, related_category, emotion_tag, urgency_level, is_active)
-                   VALUES (%s, %s, %s::vector, %s, %s, %s, %s, true)""",
-                (
-                    user_id,
-                    item["text"].strip(),
-                    _vector_literal(embedding) if embedding else None,
-                    item.get("data_type", "onboarding"),
-                    item.get("related_category", "cashflow"),
-                    item.get("emotion_tag"),
-                    item.get("urgency_level", "normal"),
-                ),
-            )
+    with closing(_connection()) as connection:
+        with connection, connection.cursor() as cursor:
+            for item, embedding in zip(valid, embeddings):
+                cursor.execute(
+                    """UPDATE user_context_embeddings SET is_active = false
+                       WHERE user_id = %s AND data_type = %s AND related_category = %s AND is_active""",
+                    (user_id, item.get("data_type", "onboarding"), item.get("related_category", "cashflow")),
+                )
+                cursor.execute(
+                    """INSERT INTO user_context_embeddings
+                       (user_id, text, embedding, data_type, related_category, emotion_tag, urgency_level, is_active)
+                       VALUES (%s, %s, %s::vector, %s, %s, %s, %s, true)""",
+                    (
+                        user_id,
+                        item["text"].strip(),
+                        _vector_literal(embedding) if embedding else None,
+                        item.get("data_type", "onboarding"),
+                        item.get("related_category", "cashflow"),
+                        item.get("emotion_tag"),
+                        item.get("urgency_level", "normal"),
+                    ),
+                )
     return len(valid)
 
 
+def list_contexts(user_id: str) -> list[dict]:
+    """Active context rows for a user, for prefilling an edit UI. No embedding call needed."""
+    with closing(_connection()) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """SELECT text, data_type, related_category, emotion_tag, urgency_level FROM user_context_embeddings
+               WHERE user_id = %s AND is_active ORDER BY created_at""",
+            (user_id,),
+        )
+        return [
+            {
+                "text": row[0],
+                "data_type": row[1],
+                "related_category": row[2],
+                "emotion_tag": row[3],
+                "urgency_level": row[4],
+            }
+            for row in cursor.fetchall()
+        ]
+
+
 def retrieve_context(user_id: str, related_category: str, query: str, top_k: int = 3) -> list[str]:
-    with _connection() as connection, connection.cursor() as cursor:
+    with closing(_connection()) as connection, connection.cursor() as cursor:
         embedding: list[float] | None = None
         if os.getenv("OPENAI_API_KEY"):
             try:
