@@ -6,8 +6,11 @@ from .hiring_agent.hiring_pattern_pipeline import get_hiring_season, search_comp
 from .pattern_advisor import advise_next_week
 from .predictor import predict_next_spend
 from .linkareer_macro import collect_recruitments
+from .financial_rag import build_personalized_guide, save_contexts
 from .schemas import (
     CompanySuggestion,
+    FinancialContextRequest,
+    FinancialContextResponse,
     GuideRequest,
     GuideResponse,
     HiringSeasonResponse,
@@ -73,13 +76,18 @@ def predict_pattern(payload: SpendingPredictionRequest, x_internal_api_key: str 
 @app.post("/guide", response_model=GuideResponse)
 def build_guide(payload: GuideRequest, x_internal_api_key: str | None = Header(default=None, alias="X-Internal-Api-Key")) -> GuideResponse:
     verify_internal_key(x_internal_api_key)
-    if payload.status == "risk":
-        guide = f"{payload.shortage_month}에 자금 부족이 예상됩니다. 월 지출 한도를 {payload.recommended_monthly_spend_limit:,}원으로 낮추는 시나리오를 먼저 검토하세요."
-    elif payload.status == "caution":
-        guide = "목표 취업월까지 현금흐름이 빠듯합니다. 확정 일정 비용을 이번 달 예산에 먼저 반영하고 정책 후보를 적용해 보세요."
-    else:
-        guide = "목표 취업월까지 현금흐름은 안정적입니다. 시험·면접 비용이 늘어나는 달만 별도로 관리하면 됩니다."
-    return GuideResponse(guide=guide)
+    if not payload.user_id:
+        return GuideResponse(guide="개인화 가이드를 만들려면 사용자 정보가 필요합니다.")
+    return GuideResponse(**build_personalized_guide(payload.model_dump()))
+
+
+@app.post("/financial-contexts", response_model=FinancialContextResponse)
+def save_financial_contexts(payload: FinancialContextRequest, x_internal_api_key: str | None = Header(default=None, alias="X-Internal-Api-Key")) -> FinancialContextResponse:
+    verify_internal_key(x_internal_api_key)
+    try:
+        return FinancialContextResponse(saved_count=save_contexts(payload.user_id, [item.model_dump() for item in payload.contexts]))
+    except Exception as error:
+        raise HTTPException(status_code=503, detail="개인화 정보를 저장하지 못했습니다.") from error
 
 
 @app.get("/hiring/season", response_model=HiringSeasonResponse)

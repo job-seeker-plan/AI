@@ -47,14 +47,35 @@ class PatternAdviceResponse(BaseModel):
 
 
 class GuideRequest(BaseModel):
+    user_id: str | None = None
     status: str
     target_month_balance: int
     shortage_month: str | None = None
     recommended_monthly_spend_limit: int
+    related_category: str = "cashflow"
 
 
 class GuideResponse(BaseModel):
     guide: str
+    personalized: bool = False
+    context_count: int = 0
+
+
+class FinancialContextInput(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
+    data_type: str = Field(default="onboarding", max_length=40)
+    related_category: str = Field(default="cashflow", max_length=40)
+    emotion_tag: str | None = Field(default=None, max_length=40)
+    urgency_level: str = Field(default="normal", max_length=20)
+
+
+class FinancialContextRequest(BaseModel):
+    user_id: str
+    contexts: list[FinancialContextInput] = Field(min_length=1, max_length=8)
+
+
+class FinancialContextResponse(BaseModel):
+    saved_count: int
 
 
 class HiringSeasonMonthly(BaseModel):
