@@ -1,0 +1,57 @@
+name: Deploy to k3s
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  IMAGE: asia-northeast3-docker.pkg.dev/aivideo-weight/planner-images/ai
+  PROJECT: aivideo-weight
+  DEPLOYMENT: ai
+  CONTAINER: ai
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/580800872730/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-deployer@aivideo-weight.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build and push image
+        run: |
+          gcloud builds submit --tag "${IMAGE}:${{ github.sha }}" --project="$PROJECT" .
+          gcloud artifacts docker tags add "${IMAGE}:${{ github.sha }}" "${IMAGE}:latest" --quiet
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.KUBE_CONFIG_B64 }}" | base64 -d > "$HOME/.kube/config"
+
+      # Artifact Registry pulls are authenticated with a short-lived access token
+      # (no long-term key on the VM) - refresh it on every deploy so it's never
+      # more than a few minutes stale when the new image gets pulled.
+      - name: Refresh image pull secret
+        run: |
+          TOKEN=$(gcloud auth print-access-token)
+          kubectl create secret docker-registry regcred \
+            --docker-server=asia-northeast3-docker.pkg.dev \
+            --docker-username=oauth2accesstoken \
+            --docker-password="$TOKEN" \
+            --docker-email=hyunji4560@gmail.com \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy
+        run: |
+          kubectl set image "deployment/${DEPLOYMENT}" "${CONTAINER}=${IMAGE}:${{ github.sha }}"
+          kubectl rollout status "deployment/${DEPLOYMENT}" --timeout=120s
