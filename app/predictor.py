@@ -35,7 +35,14 @@ _BE_FIELD_RENAME = {"balance": "card_outstanding_balance", "credit_score": "cred
 
 
 def load_history(user_id: str, records: list[dict] | None = None) -> pd.DataFrame:
-    if records:
+    # BE always passes a list (never None) once it starts sending real-time records -
+    # a user with no ledger entries yet shows up here as an empty list, not None.
+    # `if records:` treated that the same as "records not supplied", so a brand-new
+    # account fell through to the offline training CSV below, which isn't bundled in
+    # the deployed image and made /predict/spending fail with 503 for every such user.
+    if records is not None:
+        if not records:
+            raise ValueError(f"No financial history for user_id={user_id}")
         frame = pd.DataFrame(records).rename(columns=_BE_FIELD_RENAME)
         user_frame = frame[frame["user_id"] == user_id].copy()
         if user_frame.empty:
