@@ -53,7 +53,11 @@ jobs:
             fi
             sleep 10
           done
-          gcloud artifacts docker tags add "${IMAGE}:${{ github.sha }}" "${IMAGE}:latest" --quiet
+          # Moving an existing :latest tag needs artifactregistry.tags.delete, which
+          # this deployer account doesn't have. :latest is only a convenience alias
+          # (the actual deploy below pins the commit-SHA tag), so don't let a failure
+          # here block the real deploy.
+          gcloud artifacts docker tags add "${IMAGE}:${{ github.sha }}" "${IMAGE}:latest" --quiet || echo "Could not update :latest tag, continuing"
 
       - name: Configure kubectl
         run: |
