@@ -44,7 +44,17 @@ def health() -> dict[str, str]:
 async def crawl_linkareer_recruitments(payload: LinkareerRecruitSearchRequest, x_internal_api_key: str | None = Header(default=None, alias="X-Internal-Api-Key")) -> LinkareerRecruitSearchResponse:
     verify_internal_key(x_internal_api_key)
     try:
-        jobs, source_url, total_count, cached = await collect_recruitments(payload.keyword, payload.category_id, payload.region_id, payload.job_type, payload.page, payload.limit)
+        jobs, source_url, total_count, cached = await collect_recruitments(
+            payload.keyword,
+            payload.category_id,
+            payload.region_id,
+            payload.job_type,
+            payload.page,
+            payload.limit,
+            payload.region_name,
+            payload.experience,
+            payload.deadline_within_days,
+        )
         return LinkareerRecruitSearchResponse(jobs=jobs, source_url=source_url, total_count=total_count, page=payload.page, page_size=payload.limit, cached=cached)
     except RuntimeError as error:
         raise HTTPException(status_code=503, detail=str(error)) from error

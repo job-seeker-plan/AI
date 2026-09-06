@@ -133,6 +133,9 @@ class LinkareerRecruitSearchRequest(BaseModel):
     job_type: str | None = Field(default=None, max_length=20)
     page: int = Field(default=1, ge=1)
     limit: int = Field(default=20, ge=1, le=20)
+    region_name: str | None = Field(default=None, max_length=20)
+    experience: str | None = Field(default=None, max_length=20)
+    deadline_within_days: int | None = Field(default=None, ge=0, le=3650)
 
 
 class LinkareerRecruitment(BaseModel):

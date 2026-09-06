@@ -20,21 +20,36 @@ from playwright.async_api import async_playwright
 
 SOURCE_URL = "https://linkareer.com/list/recruit"
 MAX_LIMIT = 20
+MAX_PAGES = 200
 CACHE_TTL = timedelta(minutes=5)
 _cache: dict[str, tuple[datetime, list[dict[str, Any]], int]] = {}
 _browser_lock = asyncio.Lock()
 
 
-async def collect_recruitments(keyword: str, category_id: str | None, region_id: str | None, job_type: str | None, page: int, limit: int) -> tuple[list[dict[str, Any]], str, int, bool]:
+async def collect_recruitments(
+    keyword: str,
+    category_id: str | None,
+    region_id: str | None,
+    job_type: str | None,
+    page: int,
+    limit: int,
+    region_name: str | None = None,
+    experience: str | None = None,
+    deadline_within_days: int | None = None,
+) -> tuple[list[dict[str, Any]], str, int, bool]:
     normalized_keyword = keyword.strip().casefold()
     effective_limit = min(max(limit, 1), MAX_LIMIT)
     effective_page = max(page, 1)
     source_url = _source_url(keyword, category_id, region_id, job_type, effective_page)
-    cache_key = f"{source_url}|contains-search"
+    cache_key = "|".join([
+        keyword.strip(), category_id or "", region_id or "", job_type or "",
+        region_name or "", experience or "", str(deadline_within_days or ""),
+    ])
     cached = _cache.get(cache_key)
     now = datetime.now(UTC)
     if cached and now - cached[0] < CACHE_TTL:
-        return cached[1][:effective_limit], source_url, cached[2], True
+        start = (effective_page - 1) * effective_limit
+        return cached[1][start:start + effective_limit], source_url, cached[2], True
 
     # A single browser page at a time prevents an accidental burst of requests.
     async with _browser_lock:
@@ -42,21 +57,26 @@ async def collect_recruitments(keyword: str, category_id: str | None, region_id:
         now = datetime.now(UTC)
         if cached and now - cached[0] < CACHE_TTL:
             return cached[1][:effective_limit], source_url, cached[2], True
-        if normalized_keyword:
-            jobs, total_count = await _load_matching_listings(
-                _source_url("", category_id, region_id, job_type, 1),
-                [
-                    _source_url(search_keyword, category_id, region_id, job_type, 1)
-                    for search_keyword in _search_variants(normalized_keyword)
-                ],
-                normalized_keyword,
-                effective_page,
-                effective_limit,
-            )
-        else:
-            jobs, total_count = await _load_public_listing(source_url, "")
+        query_urls = [
+            _source_url(search_keyword, category_id, region_id, job_type, 1)
+            for search_keyword in _search_variants(normalized_keyword)
+        ] if normalized_keyword else [_source_url("", category_id, region_id, job_type, 1)]
+        all_jobs: dict[str, dict[str, Any]] = {}
+        for query_url in query_urls:
+            for job in await _load_all_pages(query_url):
+                all_jobs[job["id"]] = job
+        jobs = [
+            job for job in all_jobs.values()
+            if (not normalized_keyword or _job_contains_keyword(job, normalized_keyword))
+            and _region_matches(job, region_name)
+            and _experience_matches(job, experience)
+            and _deadline_matches(job, deadline_within_days)
+        ]
+        jobs.sort(key=lambda job: (job.get("deadline", ""), job.get("id", "")))
+        total_count = len(jobs)
         _cache[cache_key] = (now, jobs, total_count)
-        return jobs[:effective_limit], source_url, total_count, False
+        start = (effective_page - 1) * effective_limit
+        return jobs[start:start + effective_limit], source_url, total_count, False
 
 
 def _source_url(keyword: str, category_id: str | None, region_id: str | None, job_type: str | None, page: int) -> str:
@@ -107,6 +127,57 @@ async def _load_public_listing(source_url: str, keyword: str) -> tuple[list[dict
         raise RuntimeError("링커리어 목록 데이터 형식이 변경되었습니다.") from error
 
     return _jobs_from_apollo(apollo_state, keyword)
+
+
+async def _load_all_pages(source_url: str) -> list[dict[str, Any]]:
+    first_page_jobs, total_count = await _load_public_listing(source_url, "")
+    jobs = list(first_page_jobs)
+    page_size = max(len(first_page_jobs), MAX_LIMIT)
+    total_pages = min(MAX_PAGES, max(1, (total_count + page_size - 1) // page_size))
+    for page_number in range(2, total_pages + 1):
+        page_url = f"{source_url}&page={page_number}" if "?" in source_url else f"{source_url}?page={page_number}"
+        page_jobs, _ = await _load_public_listing(page_url, "")
+        jobs.extend(page_jobs)
+        if not page_jobs:
+            break
+    return jobs
+
+
+def _region_matches(job: dict[str, Any], region_name: str | None) -> bool:
+    if not region_name:
+        return True
+    locations = {str(value).strip() for value in job.get("locations", [])}
+    if region_name in locations:
+        return True
+    grouped = {
+        "충북": "충청", "충남": "충청",
+        "전북": "전라", "전남": "전라",
+        "경북": "경상", "경남": "경상",
+    }
+    return grouped.get(region_name, region_name) in locations
+
+
+def _experience_matches(job: dict[str, Any], experience: str | None) -> bool:
+    if not experience or experience == "any":
+        return True
+    terms = {
+        "entry": "신입", "experienced": "경력",
+        "intern": "인턴", "contract": "계약",
+    }
+    return terms.get(experience, experience) in str(job.get("employment_type", ""))
+
+
+def _deadline_matches(job: dict[str, Any], deadline_within_days: int | None) -> bool:
+    if not deadline_within_days:
+        return True
+    deadline = job.get("deadline", "")
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(deadline)):
+        return False
+    try:
+        days_until_deadline = (datetime.fromisoformat(deadline).date() - datetime.now().date()).days
+    except ValueError:
+        return False
+    return 0 <= days_until_deadline <= deadline_within_days
 
 
 def _search_variants(keyword: str) -> list[str]:
