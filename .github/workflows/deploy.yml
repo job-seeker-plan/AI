@@ -28,10 +28,36 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@v2
 
+      # gcloud builds submit's default synchronous mode streams build logs, which
+      # needs project Viewer/Owner and fails with "This tool can only stream logs
+      # if you are Viewer/Owner of the project" for this deployer service account
+      # even after granting roles/logging.viewer and roles/viewer - so submit async
+      # and poll build status instead, which only needs cloudbuild.builds.editor
+      # (already granted) and never touches log streaming.
       - name: Build and push image
         run: |
-          gcloud builds submit --tag "${IMAGE}:${{ github.sha }}" --project="$PROJECT" .
-          gcloud artifacts docker tags add "${IMAGE}:${{ github.sha }}" "${IMAGE}:latest" --quiet
+          BUILD_ID=$(gcloud builds submit --async --format="value(id)" --tag "${IMAGE}:${{ github.sha }}" --project="$PROJECT" .)
+          echo "Cloud Build ID: $BUILD_ID"
+          DEADLINE=$((SECONDS + 900))
+          while true; do
+            STATUS=$(gcloud builds describe "$BUILD_ID" --project="$PROJECT" --format="value(status)")
+            echo "status=$STATUS"
+            case "$STATUS" in
+              SUCCESS) break ;;
+              WORKING|QUEUED|PENDING) ;;
+              *) echo "Build ended with status $STATUS"; exit 1 ;;
+            esac
+            if [ "$SECONDS" -ge "$DEADLINE" ]; then
+              echo "Timed out waiting for Cloud Build"
+              exit 1
+            fi
+            sleep 10
+          done
+          # Moving an existing :latest tag needs artifactregistry.tags.delete, which
+          # this deployer account doesn't have. :latest is only a convenience alias
+          # (the actual deploy below pins the commit-SHA tag), so don't let a failure
+          # here block the real deploy.
+          gcloud artifacts docker tags add "${IMAGE}:${{ github.sha }}" "${IMAGE}:latest" --quiet || echo "Could not update :latest tag, continuing"
 
       - name: Configure kubectl
         run: |
