@@ -19,12 +19,17 @@ _model_load_attempted = False
 
 def _get_model_bundle() -> dict | None:
     """train.py로 미리 학습해둔 LightGBM 모델을 최초 1회만 로드해 재사용한다.
-    모델 파일이 없으면(아직 학습 전이면) None을 반환해 휴리스틱 경로로 폴백한다."""
+    모델 파일이 없거나(아직 학습 전이면) 로드 자체가 실패하면(예: 배포 이미지에
+    lightgbm 네이티브 확장이 요구하는 시스템 라이브러리가 빠진 경우) None을 반환해
+    휴리스틱 경로로 폴백한다 - 모델 문제로 /predict/spending 전체가 죽지 않도록."""
     global _model_bundle, _model_load_attempted
     if not _model_load_attempted:
         _model_load_attempted = True
         if MODEL_PATH.exists():
-            _model_bundle = joblib.load(MODEL_PATH)
+            try:
+                _model_bundle = joblib.load(MODEL_PATH)
+            except Exception:
+                _model_bundle = None
     return _model_bundle
 
 
