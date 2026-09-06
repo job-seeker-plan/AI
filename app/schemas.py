@@ -46,6 +46,12 @@ class PatternAdviceResponse(BaseModel):
     signals: PatternSignals
 
 
+class NextEventInfo(BaseModel):
+    title: str
+    event_type: str
+    event_date: str
+
+
 class GuideRequest(BaseModel):
     user_id: str | None = None
     status: str
@@ -53,6 +59,10 @@ class GuideRequest(BaseModel):
     shortage_month: str | None = None
     recommended_monthly_spend_limit: int
     related_category: str = "cashflow"
+    # 취업 일정 에이전트(캘린더)와 재무 가이드 에이전트를 한 번의 생성 호출로 묶기
+    # 위한 값. 있으면 "왜 지금 지출을 줄여야 하는지"와 "왜 이 일정부터 챙겨야
+    # 하는지"를 하나의 근거로 같이 설명한다.
+    next_event: NextEventInfo | None = None
 
 
 class GuideResponse(BaseModel):
