@@ -20,7 +20,14 @@ from playwright.async_api import async_playwright
 
 SOURCE_URL = "https://linkareer.com/list/recruit"
 MAX_LIMIT = 20
-MAX_PAGES = 200
+# A broad/empty search can match thousands of postings on Linkareer. Each page
+# costs a full headless-browser launch (see _load_public_listing), and only one
+# of these crawls can run at a time (_browser_lock), so an unbounded page count
+# here previously let one search monopolize the lock for minutes while every
+# other user's request queued behind it and timed out upstream (BE's AiClient
+# read timeout is far shorter than that). Keep this small enough that a worst
+# case crawl finishes within that timeout.
+MAX_PAGES = 5
 CACHE_TTL = timedelta(minutes=5)
 _cache: dict[str, tuple[datetime, list[dict[str, Any]], int]] = {}
 _browser_lock = asyncio.Lock()
